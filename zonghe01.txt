@@ -1,0 +1,342 @@
+baw--Db
+
+
+'''
+
+'''
+from zonghe.caw import DbOp
+from zonghe.caw.DbOp import disconnect
+
+
+def delete_user(db,phone):
+    '''
+    根据手机号删除用户
+    :param db:
+    :param phone:
+    :return:
+    '''
+    conn = DbOp.connect(db)
+    # 根据手机号删除用户
+    DbOp.execute(conn, f"delete from member where mobilephone={phone};")
+    disconnect(conn)
+---------------------------
+baw--Member
+
+
+'''
+用户模块的接口，按模块管理
+'''
+
+
+def register(url, baserequests, data):
+    '''
+    注册接口
+    :param url:  环境数据，比如http://jy001:8081/
+    :param baserequests:  BaseRequests的实例
+    :param data:  注册的数据
+    :return:  响应
+    '''
+    url = url + "/futureloan/mvc/api/member/register"
+    return baserequests.post(url, data=data)
+
+
+def login():
+    pass
+
+
+def list(url, baserequests):
+    url = url + "/futureloan/mvc/api/member/list"
+    return baserequests.post(url)
+
+---------------------------
+caw--BaseRequests
+
+
+'''
+1. 增加异常处理
+2. 新建一个session，使用session发送请求，自动管理cookie
+'''
+import requests
+
+
+class BaseRequests:
+    def __init__(self):
+        self.session = requests.session()
+
+    def get(self,url, **kwargs):
+        try:
+            r = self.session.get(url, **kwargs)
+            print(f"发送get请求, url : {url},请求参数:{kwargs}成功。")
+            return r
+        except Exception as e:
+            print(a)
+
+    def post(self, url, data=None, json=None, **kwargs):
+        try:
+            r = self.session.post(url, data=data, json=json, **kwargs)
+            print(f"发送post请求, url : {url},请求参数:data:{data}, json:{json}, 其他：{kwargs}成功。")
+            return r
+        except Exception as e:
+            print(f"发送post请求, url : {url},请求参数:data:{data}, json:{json}, 其他：{kwargs}异常,异常信息为:{e}。")
+
+if __name__ == '__main__':
+    r = BaseRequests().get("http://www.httpbin.org/get?name=root")
+    print(r.text)
+    cs = {"user":"root", "pwd":123456}
+    r = BaseRequests().post("http://www.httpbin.org/post",data=cs)
+    print(r.text)
+
+
+
+
+
+
+
+---------------------------
+caw--DataRead
+
+
+'''
+读文件相关的方法
+'''
+import configparser
+import os
+
+import yaml
+
+
+def get_project_path():
+    '''
+    获取当前工程的路径
+    :return:
+    '''
+    cp = os.path.realpath(__file__) # D:\ApiAutoTest\zonghe\caw\DataRead.py
+    print(cp)
+    cd = os.path.dirname(cp)  #
+    # print(cd)
+    return os.path.dirname(cd) + "\\" #
+
+
+def read_ini(file_path, key):
+    '''
+    读取ini配置文件
+    :param file_path: 配置文件的路径
+    :param key: key值
+    :return:  key对应的value
+    '''
+    file_path = get_project_path() + file_path
+
+    config = configparser.ConfigParser()
+    config.read(file_path)
+    return config.get("env", key) # env对应ini文件中的[env]
+
+def read_yaml(flie_path):
+    '''
+    读取yaml文件
+    :param flie_path:
+    :return:
+    '''
+    flie_path = get_project_path() +flie_path
+    with open(flie_path, "r", encoding="utf-8") as f:
+        content = f.read()
+        return yaml.load(content, Loader=yaml.FullLoader)
+
+# 测试代码，用完删除
+if __name__ == '__main__':
+    url = read_ini(r"data_env\env.ini", "url")
+    print(url)
+    db = read_ini(r"data_env\env.ini", "db")
+    print(db)
+    print(type(db))
+    db = eval(db) # 字符串解析为字典
+    print(db)
+    print(type(db))
+
+    c = read_yaml(r"data_case\register_fail.yaml")
+    print(c)
+
+
+---------------------------
+caw---DbOp
+
+
+'''
+数据库操作
+'''
+
+import pymysql
+def connect(db):
+    '''
+    连接数据库
+    :param db: 字典格式的数据。db = {"ip":"jy001","port":"4406","user":"root","pwd":"123456","dbname":"future"}
+    :return: 连接对象
+    '''
+    # 从字典里取出数据库相关的值
+    ip = db['ip']
+    port = db['port']
+    user = db['user']
+    pwd = db['pwd']
+    name = db['dbname']
+    try:
+        conn = pymysql.connect(host=ip, user=user, password=pwd,
+                     database=name, port=int(port),
+                     charset='utf8')
+        print(f"连接数据库{ip}:{port}成功。")
+        return conn
+    except Exception as e:
+        print(f"连接数据库异常，异常信息为{e}。")
+
+def disconnect(conn):
+    try:
+        conn.close()
+        print(f"断开数据库连接成功")
+    except Exception as e:
+        print("断开数据库连接异常，异常信息为。"+e)
+
+
+def execute(conn, sql):
+    try:
+        c = conn.cursor() # 获取游标
+        c.execute(sql)
+        conn.commit()
+        c.close() # 关闭游标
+        print(f"执行{sql}语句成功。")
+    except Exception as e:
+        print(f"执行{sql}语句异常，异常信息为{e}。")
+
+if __name__ == '__main__':
+    db = {"ip": "jy001", "port": "4406", "user": "root", "pwd": "123456", "dbname": "future"}
+    #db = {"ip": "190.168.150.70", "port": "3306", "user": "root", "pwd": "123456", "dbname": "apple"}
+    conn = connect(db)
+    # 根据手机号删除用户
+    execute(conn, "delete from  member where mobilephone=18013345678;")
+    disconnect(conn)
+
+
+---------------------------
+data_case---register_fail.yaml
+
+
+
+
+
+---------------------------
+data_case---register_pass.yaml
+
+---------------------------
+data_case---register_repeat.yaml
+
+---------------------------
+data_env---env.ini
+
+
+[env]
+url = http://jy001:8081/
+db = {"ip":"jy001","port":"4406","user":"root","pwd":"123456","dbname":"future"}
+
+---------------------------
+test_script---conftest
+
+
+'''
+脚本层的一些公共方法
+'''
+import pytest
+from zonghe.caw import DataRead
+from zonghe.caw.BaseRequests import BaseRequests
+
+
+env_path = r"data_env\env.ini"
+
+# 读取env.ini中的url,设置session级别的，整个执行过程读一次。
+@pytest.fixture(scope='session')
+def url():
+    return DataRead.read_ini(env_path,"url")
+
+@pytest.fixture(scope='session')
+def db():
+    return eval(DataRead.read_ini(env_path,"db"))
+
+
+
+# 创建一个BaseRequests的实例,设置session级别，整个执行过程只有一个实例，自动管理Cookie
+@pytest.fixture(scope='session')
+def baserequests():
+    return BaseRequests()
+
+---------------------------
+test_script---test_register
+
+
+'''
+注册的测试脚本
+'''
+
+# 注册失败的测试脚本
+import pytest
+
+from zonghe.baw import Member, Db
+from zonghe.caw import DataRead
+
+# pytest 数据驱动的方式
+# 从yaml中读取测试数据
+@pytest.fixture(params=DataRead.read_yaml(r"data_case\register_fail.yaml"))
+def fail_data(request):
+    return request.param
+
+
+def test_register_fail(url,baserequests, fail_data):
+    # 下发注册的请求
+    r = Member.register(url,baserequests, fail_data['data'])
+    # 断言结果
+    print(r.text)
+    assert r.json()['code'] == fail_data['expect']['code']
+    assert r.json()['msg'] == fail_data['expect']['msg']
+    assert r.json()['status'] == fail_data['expect']['status']
+
+# 把注册成功的数据写到register_pass.yaml
+# 注册成功的脚本，下发请求，断言响应的结果。
+@pytest.fixture(params=DataRead.read_yaml(r"data_case\register_pass.yaml"))
+def pass_data(request):
+    return request.param
+
+@pytest.fixture(params=DataRead.read_yaml(r"data_case\register_repeat.yaml"))
+def repeat_data(request):
+    return request.param
+
+def test_register_pass(url,baserequests, pass_data, db):
+    mobilephone = pass_data['data']['mobilephone']
+    # 初始化环境：删除注册的用户（数据库中可能有其他人测试的数据，与本用例冲突）
+    Db.delete_user(db, mobilephone)
+    # 下发注册的请求
+    r = Member.register(url,baserequests, pass_data['data'])
+    print(r.text)
+    # 断言结果
+    assert str(r.json()['code']) == str(pass_data['expect']['code'])
+    assert str(r.json()['msg']) == str(pass_data['expect']['msg'])
+    assert str(r.json()['status']) == str(pass_data['expect']['status'])
+    # 调用查询的接口，在查询的结果中能找到本次注册的手机号
+    r = Member.list(url, baserequests)
+    assert str(mobilephone) in r.text
+    # 清理环境： 删除注册的用户
+    Db.delete_user(db, mobilephone)
+
+def test_register_repeat(url,baserequests, repeat_data, db):
+    mobilephone = repeat_data['data']['mobilephone']
+    # 初始化环境：删除注册的用户（数据库中可能有其他人测试的数据，与本用例冲突）
+    Db.delete_user(db, mobilephone)
+
+    Member.register(url,baserequests,repeat_data['data'])
+    # 重复注册
+    r = Member.register(url,baserequests, repeat_data['data'])
+
+    # 断言结果
+    assert str(r.json()['code']) == str(repeat_data['expect']['code'])
+    assert str(r.json()['msg']) == str(repeat_data['expect']['msg'])
+    assert str(r.json()['status']) == str(repeat_data['expect']['status'])
+
+    # 清理环境： 删除注册的用户
+    Db.delete_user(db, mobilephone)
+
+
+---------------------------
